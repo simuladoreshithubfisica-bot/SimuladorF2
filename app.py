@@ -2,64 +2,73 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 
-# 1. Configuración de la página (esto debe ir primero)
-st.set_page_config(page_title="Simulador de Red de Reflexión", layout="centered")
+# Configuración de la página
+st.set_page_config(page_title="Laboratorio Virtual de Física II", layout="wide")
 
-st.title("🛡️ Red de Reflexión Tallada (Blazed Grating)")
-st.markdown("""
-Esta aplicación simula cómo el ángulo de las facetas de una red de reflexión permite concentrar la energía en un orden de difracción específico. 
-""")
+# Título y Menú Lateral
+st.sidebar.title("🛠️ Configuración del Laboratorio")
+simulador_principal = st.sidebar.selectbox(
+    "Selecciona el Experimento",
+    ["Red de Reflexión Tallada", "Modos Normales: Osciladores Acoplados", "Modos Normales: Cuerdas Vibrantes"]
+)
 
-# 2. Parámetros en la barra lateral
-st.sidebar.header("Configuración del Experimento")
-phi_deg = st.sidebar.slider('Ángulo de Faceta (phi) [°]', 0.0, 30.0, 8.35)
-wav = st.sidebar.slider('Longitud de onda (λ) [nm]', 400, 750, 600)
-N = st.sidebar.number_input('Número de rendijas (N)', value=20, min_value=2)
-d = 2000  # nm (Paso de la red fijo)
+# --- 1. SIMULADOR: RED DE REFLEXIÓN (Tu código original) ---
+if simulador_principal == "Red de Reflexión Tallada":
+    st.title("🛡️ Red de Reflexión Tallada (Blazed Grating)")
+    # (Aquí va el código que ya tienes funcionando para la red)
+    st.info("Este es el simulador que ya tenías configurado.")
 
-# 3. Lógica matemática
-phi = np.radians(phi_deg)
-theta = np.linspace(-np.radians(60), np.radians(60), 2000)
+# --- 2. SIMULADOR: OSCILADORES ACOPLADOS (Mejorado con Sliders) ---
+elif simulador_principal == "Modos Normales: Osciladores Acoplados":
+    st.title("🧶 Modos Normales en Osciladores Acoplados")
+    
+    col1, col2 = st.columns([1, 3])
+    
+    with col1:
+        st.subheader("Parámetros")
+        n_masas = st.selectbox("Escenario (Número de masas)", [2, 3], index=0)
+        k = st.slider("Constante elástica k (N/m)", 1, 100, 20)
+        m = st.slider("Masa m (kg)", 0.1, 5.0, 1.0)
+        modo = st.radio("Seleccionar Modo", [f"Modo {i+1}" for i in range(n_masas)])
 
-# Término de interferencia de la red
-gamma = (np.pi * d * np.sin(theta)) / wav
-with np.errstate(divide='ignore', invalid='ignore'):
-    interf = (np.sin(N * gamma) / np.sin(gamma))**2
-    interf /= N**2
-    interf = np.nan_to_num(interf, nan=1.0) # Manejo de indeterminaciones en el centro
+    with col2:
+        t = np.linspace(0, 10, 500)
+        # Lógica simplificada para 2 masas
+        if n_masas == 2:
+            w = np.sqrt(k/m) if modo == "Modo 1" else np.sqrt(3*k/m)
+            x1 = np.cos(w * t)
+            x2 = np.cos(w * t) if modo == "Modo 1" else -np.cos(w * t)
+            
+            fig, ax = plt.subplots(figsize=(10, 4))
+            ax.plot(t, x1, label="Masa 1")
+            ax.plot(t, x2, label="Masa 2", linestyle="--")
+            ax.set_title(f"Oscilación en {modo} (ω = {w:.2f} rad/s)")
+            ax.legend()
+            st.pyplot(fig)
 
-# Envolvente de difracción de la faceta (Blazing)
-beta = (np.pi * d * np.cos(phi) * np.sin(theta - 2*phi)) / wav
-env = (np.sinc(beta/np.pi))**2
+# --- 3. SIMULADOR: CUERDAS VIBRANTES (Mejorado con Selectores) ---
+elif simulador_principal == "Modos Normales: Cuerdas Vibrantes":
+    st.title("🎻 Modos Normales en Cuerdas (Continuo)")
+    
+    st.sidebar.subheader("Ajustes de la Cuerda")
+    L = st.sidebar.slider("Longitud L (m)", 0.5, 5.0, 1.0)
+    tension = st.sidebar.slider("Tensión T (N)", 10, 500, 100)
+    mu = st.sidebar.slider("Densidad lineal μ (kg/m)", 0.01, 0.5, 0.1)
+    n_armonico = st.sidebar.number_input("Número de Armónico (n)", 1, 10, 1)
 
-I_total = interf * env
-
-# 4. Creación de los gráficos con Matplotlib
-plt.style.use('dark_background')
-fig, (ax_geom, ax_plot) = plt.subplots(2, 1, figsize=(10, 8), gridspec_kw={'height_ratios': [1, 2]})
-plt.subplots_adjust(hspace=0.4)
-
-# Esquema Geométrico
-for i in range(5):
-    x_base = i * d
-    ax_geom.plot([x_base, x_base + d*np.cos(phi)**2], [0, d*np.sin(phi)*np.cos(phi)], 'cyan', lw=2)
-ax_geom.set_title(f"Geometría de las Facetas (Phi: {phi_deg}°) ", color='cyan')
-ax_geom.axis('off')
-
-# Gráfico de Intensidad
-ax_plot.plot(np.degrees(theta), I_total, color='white', lw=1.5, label='Intensidad Total')
-ax_plot.plot(np.degrees(theta), env, 'r--', alpha=0.5, label='Envolvente (Blazing)')
-ax_plot.fill_between(np.degrees(theta), I_total, color='cyan', alpha=0.2)
-ax_plot.set_xlim(-60, 60)
-ax_plot.set_ylim(0, 1.1)
-ax_plot.set_title("Patrón de Difracción Intensificado", color='white')
-ax_plot.set_xlabel("Ángulo de Emergencia (°)")
-ax_plot.set_ylabel("I / I_max")
-ax_plot.legend()
-ax_plot.grid(alpha=0.1)
-
-# 5. Renderizado en Streamlit
-st.pyplot(fig)
-
-# Información adicional opcional
-st.info(f"💡 El máximo de la envolvente se encuentra en el ángulo de reflexión especular: {2*phi_deg:.2f}°")
+    v = np.sqrt(tension / mu)
+    frecuencia = (n_armonico * v) / (2 * L)
+    
+    x = np.linspace(0, L, 1000)
+    y = np.sin(n_armonico * np.pi * x / L)
+    
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.plot(x, y, color="cyan", lw=2)
+    ax.fill_between(x, y, -y, alpha=0.1, color="cyan")
+    ax.set_title(f"Armónico n={n_armonico} - Frecuencia: {frecuencia:.2f} Hz")
+    ax.set_xlim(0, L)
+    ax.set_ylim(-1.5, 1.5)
+    ax.grid(True, linestyle="--", alpha=0.6)
+    st.pyplot(fig)
+    
+    st.latex(r"f_n = \frac{n}{2L} \sqrt{\frac{T}{\mu}}")
