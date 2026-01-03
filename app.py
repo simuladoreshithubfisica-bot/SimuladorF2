@@ -1,74 +1,78 @@
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 
-# Configuración de la página
-st.set_page_config(page_title="Laboratorio Virtual de Física II", layout="wide")
+st.set_page_config(page_title="Laboratorio de Física II", layout="wide")
 
-# Título y Menú Lateral
-st.sidebar.title("🛠️ Configuración del Laboratorio")
-simulador_principal = st.sidebar.selectbox(
-    "Selecciona el Experimento",
-    ["Red de Reflexión Tallada", "Modos Normales: Osciladores Acoplados", "Modos Normales: Cuerdas Vibrantes"]
-)
+# MENU LATERAL
+st.sidebar.title("Menú de Experimentos")
+modo_seleccionado = st.sidebar.selectbox("Seleccione el Simulador", 
+                                        ["2 Masas Acopladas", "Red de Difracción"])
 
-# --- 1. SIMULADOR: RED DE REFLEXIÓN (Tu código original) ---
-if simulador_principal == "Red de Reflexión Tallada":
-    st.title("🛡️ Red de Reflexión Tallada (Blazed Grating)")
-    # (Aquí va el código que ya tienes funcionando para la red)
-    st.info("Este es el simulador que ya tenías configurado.")
-
-# --- 2. SIMULADOR: OSCILADORES ACOPLADOS (Mejorado con Sliders) ---
-elif simulador_principal == "Modos Normales: Osciladores Acoplados":
-    st.title("🧶 Modos Normales en Osciladores Acoplados")
+# --- EXPERIMENTO 1: 2 MASAS ACOPLADAS (ANIMADO) ---
+if modo_seleccionado == "2 Masas Acopladas":
+    st.title("🧶 Modos Normales: 2 Masas Acopladas")
     
-    col1, col2 = st.columns([1, 3])
+    # Parámetros Interactivos
+    col_param, col_graf = st.columns([1, 2])
     
-    with col1:
-        st.subheader("Parámetros")
-        n_masas = st.selectbox("Escenario (Número de masas)", [2, 3], index=0)
+    with col_param:
+        st.subheader("Configuración")
         k = st.slider("Constante elástica k (N/m)", 1, 100, 20)
-        m = st.slider("Masa m (kg)", 0.1, 5.0, 1.0)
-        modo = st.radio("Seleccionar Modo", [f"Modo {i+1}" for i in range(n_masas)])
+        m = st.slider("Masa m (kg)", 0.5, 5.0, 1.0)
+        tipo_modo = st.radio("Modo de Oscilación", ["Simétrico (Modo 1)", "Antisimétrico (Modo 2)"])
+        animar = st.checkbox("▶️ Iniciar Animación", value=True)
 
-    with col2:
-        t = np.linspace(0, 10, 500)
-        # Lógica simplificada para 2 masas
-        if n_masas == 2:
-            w = np.sqrt(k/m) if modo == "Modo 1" else np.sqrt(3*k/m)
-            x1 = np.cos(w * t)
-            x2 = np.cos(w * t) if modo == "Modo 1" else -np.cos(w * t)
+    with col_graf:
+        # Frecuencias naturales
+        w1 = np.sqrt(k / m)
+        w2 = np.sqrt(3 * k / m)
+        w = w1 if "Simétrico" in tipo_modo else w2
+        
+        st.latex(r"\omega = " + f"{w:.2f} " + r"\text{ rad/s}")
+        
+        # Placeholder para la animación
+        plot_spot = st.empty()
+
+        # Bucle de Animación
+        t = 0
+        while animar:
+            # Calculamos posiciones de las masas
+            # x = A * cos(w*t)
+            pos1 = np.cos(w * t)
+            pos2 = np.cos(w * t) if "Simétrico" in tipo_modo else -np.cos(w * t)
             
-            fig, ax = plt.subplots(figsize=(10, 4))
-            ax.plot(t, x1, label="Masa 1")
-            ax.plot(t, x2, label="Masa 2", linestyle="--")
-            ax.set_title(f"Oscilación en {modo} (ω = {w:.2f} rad/s)")
-            ax.legend()
-            st.pyplot(fig)
+            # Crear la figura (estilo dibujo técnico)
+            fig, ax = plt.subplots(figsize=(8, 3))
+            
+            # Dibujar "Paredes"
+            ax.axvline(-2, color="black", lw=3)
+            ax.axvline(2, color="black", lw=3)
+            
+            # Dibujar Masas (como círculos)
+            ax.plot(pos1 - 0.7, 0, 'ro', markersize=20, label="Masa 1")
+            ax.plot(pos2 + 0.7, 0, 'bo', markersize=20, label="Masa 2")
+            
+            # Dibujar "Resortes" (líneas simples que se estiran)
+            ax.plot([-2, pos1 - 0.7], [0, 0], 'k-', lw=1, alpha=0.5) # Resorte 1
+            ax.plot([pos1 - 0.7, pos2 + 0.7], [0, 0], 'k-', lw=1, alpha=0.5) # Resorte 2
+            ax.plot([pos2 + 0.7, 2], [0, 0], 'k-', lw=1, alpha=0.5) # Resorte 3
+            
+            ax.set_xlim(-2.5, 2.5)
+            ax.set_ylim(-1, 1)
+            ax.get_yaxis().set_visible(False)
+            ax.set_title(f"Tiempo: {t:.1f}s")
+            
+            plot_spot.pyplot(fig)
+            plt.close(fig)
+            
+            t += 0.1
+            time.sleep(0.05) # Controla la fluidez
 
-# --- 3. SIMULADOR: CUERDAS VIBRANTES (Mejorado con Selectores) ---
-elif simulador_principal == "Modos Normales: Cuerdas Vibrantes":
-    st.title("🎻 Modos Normales en Cuerdas (Continuo)")
-    
-    st.sidebar.subheader("Ajustes de la Cuerda")
-    L = st.sidebar.slider("Longitud L (m)", 0.5, 5.0, 1.0)
-    tension = st.sidebar.slider("Tensión T (N)", 10, 500, 100)
-    mu = st.sidebar.slider("Densidad lineal μ (kg/m)", 0.01, 0.5, 0.1)
-    n_armonico = st.sidebar.number_input("Número de Armónico (n)", 1, 10, 1)
+# --- EXPERIMENTO 2: RED DE DIFRACCIÓN (Tu código original) ---
+elif modo_seleccionado == "Red de Difracción":
+    st.title("🛡️ Red de Difracción")
+    # Pega aquí el código que ya te funcionaba de la Red
+    st.write("Aquí se mostrará tu simulador de Red de Difracción.")
 
-    v = np.sqrt(tension / mu)
-    frecuencia = (n_armonico * v) / (2 * L)
-    
-    x = np.linspace(0, L, 1000)
-    y = np.sin(n_armonico * np.pi * x / L)
-    
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(x, y, color="cyan", lw=2)
-    ax.fill_between(x, y, -y, alpha=0.1, color="cyan")
-    ax.set_title(f"Armónico n={n_armonico} - Frecuencia: {frecuencia:.2f} Hz")
-    ax.set_xlim(0, L)
-    ax.set_ylim(-1.5, 1.5)
-    ax.grid(True, linestyle="--", alpha=0.6)
-    st.pyplot(fig)
-    
-    st.latex(r"f_n = \frac{n}{2L} \sqrt{\frac{T}{\mu}}")
